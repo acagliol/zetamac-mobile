@@ -110,19 +110,29 @@
 
       <!-- ──────────────────────────── RESULTS ────────────────────────────── -->
       <section id="screen-results" class="screen" hidden>
-        <h2 class="results__title">Time!</h2>
-        <div class="results__score" id="final-score">0</div>
-        <div class="results__grid">
-          <div><span class="results__label">Correct</span><span id="final-correct">0</span></div>
-          <div><span class="results__label">Incorrect</span><span id="final-incorrect">0</span></div>
-          <div><span class="results__label">Duration</span><span id="final-duration">0s</span></div>
+        <div class="hud">
+          <span class="hud__item">Seconds left: <span>0</span></span>
+          <span class="hud__item">Score: <span id="final-score">0</span></span>
         </div>
 
-        <p id="save-status" class="save-status"></p>
-        <a id="view-sheet" class="btn btn--ghost btn--block" target="_blank" rel="noopener" hidden>
-          View results spreadsheet
-        </a>
-        <button id="again-btn" class="btn btn--primary btn--block">Play again</button>
+        <div class="problem-area">
+          <div class="equation results-msg">Time's up!</div>
+        </div>
+
+        <div class="results-footer">
+          <p class="results-stats">
+            Correct <span id="final-correct">0</span> &middot;
+            Incorrect <span id="final-incorrect">0</span> &middot;
+            Duration <span id="final-duration">0s</span>
+          </p>
+          <p id="save-status" class="save-status"></p>
+          <a id="view-sheet" class="results-link" target="_blank" rel="noopener" hidden>
+            View results spreadsheet
+          </a>
+          <div class="start-row">
+            <button id="again-btn" class="btn">Play again</button>
+          </div>
+        </div>
       </section>
     </main>
 

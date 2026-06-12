@@ -197,30 +197,15 @@ body {
 .key--enter:active { background: #222; }
 
 /* ─────────────────────────────── Results ───────────────────────────────── */
-.results__title { text-align: center; color: var(--muted); font-weight: 400; margin: 10px 0; }
-.results__score {
-  text-align: center;
-  font-size: 4.5rem;
-  font-weight: 700;
-  line-height: 1;
-  margin: 8px 0 24px;
-}
-.results__grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--gap);
-  margin-bottom: 20px;
-}
-.results__grid > div {
-  border: 1px solid var(--line-soft);
-  border-radius: var(--radius);
-  padding: 14px 8px;
-  text-align: center;
-}
-.results__label { display: block; font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-.results__grid span:last-child { font-size: 1.4rem; font-weight: 700; }
+.results-msg { font-weight: 700; }
+.results-footer { text-align: center; }
+.results-stats { font-size: 0.95rem; margin: 16px 0 8px; }
+.results-stats span { font-weight: 700; }
+.results-link { display: inline-block; color: #0000ee; font-size: 0.9rem; margin: 4px 0 12px; }
 
-.save-status { text-align: center; color: var(--muted); font-size: 0.85rem; min-height: 1.2em; margin: 4px 0 16px; }
+.save-status { text-align: center; color: var(--muted); font-size: 0.85rem; min-height: 1.2em; margin: 4px 0 12px; }
+
+.results-footer .start-row { justify-content: center; }
 
 @media (min-width: 600px) {
   .key, .key--enter { padding: 20px 0; }

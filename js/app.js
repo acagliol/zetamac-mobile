@@ -197,6 +197,19 @@ function init() {
 
   $("#start-btn").addEventListener("click", startGame);
   $("#again-btn").addEventListener("click", () => showScreen("home"));
+
+  // Zetamac flow: press Enter to start from the home screen, and to play
+  // again from the results screen.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    if (!screens.home.hidden) {
+      e.preventDefault();
+      startGame();
+    } else if (!screens.results.hidden) {
+      e.preventDefault();
+      showScreen("home");
+    }
+  });
   $("#signin-btn").addEventListener("click", () => auth.signIn());
   $("#signout-btn").addEventListener("click", () => auth.signOut());
 

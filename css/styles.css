@@ -11,6 +11,11 @@
 
 * { box-sizing: border-box; }
 
+/* Ensure a hidden screen is truly hidden. Without this, the `.screen`
+   display rule below would override the [hidden] attribute and show every
+   screen at once. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;

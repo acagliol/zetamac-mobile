@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#ffffff" />
     <title>Zetamac Mobile — Mental Math</title>
     <meta
       name="description"
@@ -88,13 +88,16 @@
       <!-- ───────────────────────────── GAME ──────────────────────────────── -->
       <section id="screen-game" class="screen" hidden>
         <div class="hud">
-          <div class="hud__stat"><span class="hud__label">Time</span><span id="time">0</span></div>
-          <div class="hud__stat"><span class="hud__label">Score</span><span id="score">0</span></div>
+          <span class="hud__item">Seconds left: <span id="time">0</span></span>
+          <span class="hud__item">Score: <span id="score">0</span></span>
         </div>
 
         <div class="problem-area">
-          <div id="problem" class="problem">0 + 0</div>
-          <div id="answer" class="answer" aria-live="polite"></div>
+          <div class="equation">
+            <span id="problem" class="problem">0 + 0</span>
+            <span class="equals">=</span>
+            <span id="answer" class="answer" aria-live="polite"></span>
+          </div>
         </div>
 
         <div id="keypad" class="keypad"></div>

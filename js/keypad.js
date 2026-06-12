@@ -56,18 +56,7 @@ export class Keypad {
       grid.appendChild(btn);
     }
 
-    const enter = document.createElement("button");
-    enter.type = "button";
-    enter.className = "key key--enter";
-    enter.textContent = "Enter";
-    enter.setAttribute("aria-label", "Submit answer");
-    enter.addEventListener("click", (e) => {
-      e.preventDefault();
-      this.submit();
-    });
-
     this.root.appendChild(grid);
-    this.root.appendChild(enter);
   }
 
   _bindKeyboard() {
@@ -78,9 +67,6 @@ export class Keypad {
       } else if (e.key === "Backspace") {
         e.preventDefault();
         this.backspace();
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        this.submit();
       } else if (e.key === "Escape") {
         this.clear();
       }

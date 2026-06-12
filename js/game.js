@@ -154,6 +154,8 @@ export class GameEngine {
   getResults() {
     return {
       date: new Date().toISOString(),
+      startTime: this.startTime,
+      endTime: this.endTime,
       score: this.score,
       correct: this.correct,
       incorrect: this.incorrect,

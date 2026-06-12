@@ -1,35 +1,39 @@
 /**
  * Google Sheets integration.
  *
- * Responsibilities:
- *   - Find the user's "Zetamac Results" spreadsheet (created by this app).
- *   - Create it automatically (with a header row) if it does not exist.
- *   - Append one row per finished game.
+ * Two modes:
+ *   A) Fixed spreadsheet (preferred): write into an existing spreadsheet whose
+ *      ID is set in config (SPREADSHEET_ID), into a specific tab identified by
+ *      its gid (TARGET_SHEET_GID). Rows are formatted to match a "Session Log"
+ *      style layout: Date, Start, End, Duration, Score, State, Notes.
+ *   B) Auto-create (fallback): if no SPREADSHEET_ID is configured, find or
+ *      create a "Zetamac Results" sheet in the user's Drive and append a simple
+ *      results row.
  *
- * All requests are authenticated with the OAuth access token from GoogleAuth.
- * Because we use the `drive.file` scope, Drive only ever sees / lists files
- * that this app itself created — we never touch the rest of the user's Drive.
+ * Requests are authenticated with the OAuth access token from GoogleAuth. The
+ * `spreadsheets` scope grants read/write to spreadsheets the user can access,
+ * which is what lets mode A write into an existing, hand-made spreadsheet.
  */
 
-const HEADER_ROW = [
-  "Date",
-  "Score",
-  "Correct",
-  "Incorrect",
-  "Duration (s)",
-  "Settings",
-];
+const HEADER_ROW = ["Date", "Score", "Correct", "Incorrect", "Duration (s)", "Settings"];
 
 export class SheetsService {
   /**
    * @param {import('./auth.js').GoogleAuth} auth
-   * @param {{spreadsheetName:string, sheetTab:string}} opts
+   * @param {{spreadsheetId?:string, targetGid?:number, spreadsheetName:string, sheetTab:string}} opts
    */
-  constructor(auth, { spreadsheetName, sheetTab }) {
+  constructor(auth, { spreadsheetId, targetGid, spreadsheetName, sheetTab }) {
     this.auth = auth;
+    this.fixedId = spreadsheetId || "";
+    this.targetGid = targetGid;
     this.spreadsheetName = spreadsheetName;
     this.sheetTab = sheetTab;
-    this.spreadsheetId = null;
+    this.spreadsheetId = this.fixedId || null;
+    this._resolvedTab = null; // tab title resolved from gid (mode A)
+  }
+
+  get usingFixedSheet() {
+    return Boolean(this.fixedId);
   }
 
   _localKey() {
@@ -54,18 +58,85 @@ export class SheetsService {
     return res.json();
   }
 
-  /** Locate or create the results spreadsheet, returning its ID. */
-  async ensureSpreadsheet() {
+  /** Append one game result. */
+  async saveResult(results) {
+    if (this.usingFixedSheet) return this._appendToFixed(results);
+    return this._appendToAutoCreated(results);
+  }
+
+  // ── Mode A: existing spreadsheet + specific tab (by gid) ─────────────────
+  async _resolveTabTitle() {
+    if (this._resolvedTab) return this._resolvedTab;
+    const data = await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}` +
+        `?fields=sheets(properties(sheetId,title))`
+    );
+    const sheets = data.sheets || [];
+    // Prefer the tab whose gid matches TARGET_SHEET_GID; otherwise first tab.
+    const match =
+      sheets.find((s) => s.properties.sheetId === this.targetGid) || sheets[0];
+    this._resolvedTab = match?.properties?.title || "Sheet1";
+    return this._resolvedTab;
+  }
+
+  _formatSessionRow(results) {
+    const fmtTime = (ms) =>
+      ms
+        ? new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+        : "";
+    const end = results.endTime || Date.now();
+    const d = new Date(end);
+    const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+    const secs = results.durationSeconds;
+    const duration = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+    const ops = Object.keys(results.settings.operations)
+      .filter((k) => results.settings.operations[k].enabled)
+      .join(", ");
+    const notes = `correct ${results.correct}, incorrect ${results.incorrect}; ops: ${ops}`;
+    // Columns: Date, Start, End, Duration, Score, State, Notes
+    return [dateStr, fmtTime(results.startTime), fmtTime(end), duration, results.score, "", notes];
+  }
+
+  async _appendToFixed(results) {
+    const tab = await this._resolveTabTitle();
+    const row = this._formatSessionRow(results);
+    await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
+        `${encodeURIComponent(tab)}!A1:append` +
+        `?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      { method: "POST", body: JSON.stringify({ values: [row] }) }
+    );
+    return this.fixedId;
+  }
+
+  // ── Mode B: auto-create a personal results spreadsheet ───────────────────
+  async _appendToAutoCreated(results) {
+    const id = await this._ensureAutoSpreadsheet();
+    const row = [
+      results.date,
+      results.score,
+      results.correct,
+      results.incorrect,
+      results.durationSeconds,
+      JSON.stringify(results.settings),
+    ];
+    await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/` +
+        `${encodeURIComponent(this.sheetTab)}!A1:append?valueInputOption=USER_ENTERED`,
+      { method: "POST", body: JSON.stringify({ values: [row] }) }
+    );
+    return id;
+  }
+
+  async _ensureAutoSpreadsheet() {
     if (this.spreadsheetId) return this.spreadsheetId;
 
-    // 1) Fast path: remembered from a previous session on this device.
     const cached = localStorage.getItem(this._localKey());
     if (cached && (await this._spreadsheetExists(cached))) {
       this.spreadsheetId = cached;
       return cached;
     }
 
-    // 2) Search the user's Drive for an app-created file with our name.
     const found = await this._findSpreadsheet();
     if (found) {
       this.spreadsheetId = found;
@@ -73,7 +144,6 @@ export class SheetsService {
       return found;
     }
 
-    // 3) Nothing found → create a fresh spreadsheet for this user.
     this.spreadsheetId = await this._createSpreadsheet();
     localStorage.setItem(this._localKey(), this.spreadsheetId);
     return this.spreadsheetId;
@@ -110,7 +180,6 @@ export class SheetsService {
       }),
     });
     const id = data.spreadsheetId;
-    // Seed the header row.
     await this._fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/` +
         `${encodeURIComponent(this.sheetTab)}!A1?valueInputOption=USER_ENTERED`,
@@ -119,32 +188,11 @@ export class SheetsService {
     return id;
   }
 
-  /**
-   * Append one game result as a new row.
-   * @param {ReturnType<import('./game.js').GameEngine['getResults']>} results
-   */
-  async saveResult(results) {
-    const id = await this.ensureSpreadsheet();
-    const row = [
-      results.date,
-      results.score,
-      results.correct,
-      results.incorrect,
-      results.durationSeconds,
-      JSON.stringify(results.settings),
-    ];
-    await this._fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${id}/values/` +
-        `${encodeURIComponent(this.sheetTab)}!A1:append?valueInputOption=USER_ENTERED`,
-      { method: "POST", body: JSON.stringify({ values: [row] }) }
-    );
-    return id;
-  }
-
   /** Direct link to the spreadsheet for the "View results" button. */
   get spreadsheetUrl() {
-    return this.spreadsheetId
-      ? `https://docs.google.com/spreadsheets/d/${this.spreadsheetId}`
-      : null;
+    const id = this.spreadsheetId || this.fixedId;
+    if (!id) return null;
+    const base = `https://docs.google.com/spreadsheets/d/${id}`;
+    return this.targetGid ? `${base}/edit#gid=${this.targetGid}` : base;
   }
 }

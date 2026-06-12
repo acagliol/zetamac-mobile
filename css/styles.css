@@ -124,10 +124,11 @@ body {
   display: flex;
   justify-content: space-between;
   gap: var(--gap);
-  font-size: 0.95rem;
+  font-size: 1.3rem;
+  font-weight: 600;
 }
 .hud__item { color: var(--text); }
-.hud__item span { font-weight: 400; }
+.hud__item span { font-weight: 700; }
 
 /* ─────────────────────────────── Problem ───────────────────────────────── */
 .problem-area {
@@ -141,13 +142,13 @@ body {
   align-items: baseline;
   justify-content: center;
   gap: 0.3em;
-  font-size: clamp(2.8rem, 14vw, 4.4rem);
+  font-size: clamp(3.2rem, 17vw, 5.2rem);
   font-weight: 400;
   /* full-bleed grey band across the screen width, sized to its content */
   align-self: stretch;
   background: #dddddd;
   margin: 0 -16px;
-  padding: 32px 16px;
+  padding: 36px 12px;
 }
 .problem { white-space: nowrap; }
 .equals { font-weight: 400; }

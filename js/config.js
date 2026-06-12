@@ -21,8 +21,8 @@ window.ZETAMAC_CONFIG = {
   // Leave empty ("") to fall back to auto-creating a "Zetamac Results" sheet.
   SPREADSHEET_ID: "1OZbNLykg9KNo0dnylNdmT4y7sfu5WY43fc-29Cy9AYk",
 
-  // The specific tab (worksheet) to append to, identified by its gid from the
-  // sheet URL (…#gid=NUMBER). The Session Log tab in this tracker.
+  // The tab to append game results to. Matched by name first, gid second.
+  TARGET_SHEET_NAME: "Session Log",
   TARGET_SHEET_GID: 456037226,
 
   // Fallbacks used only when SPREADSHEET_ID is empty (auto-create mode).

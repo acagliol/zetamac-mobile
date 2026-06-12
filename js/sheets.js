@@ -20,16 +20,17 @@ const HEADER_ROW = ["Date", "Score", "Correct", "Incorrect", "Duration (s)", "Se
 export class SheetsService {
   /**
    * @param {import('./auth.js').GoogleAuth} auth
-   * @param {{spreadsheetId?:string, targetGid?:number, spreadsheetName:string, sheetTab:string}} opts
+   * @param {{spreadsheetId?:string, targetGid?:number, targetName?:string, spreadsheetName:string, sheetTab:string}} opts
    */
-  constructor(auth, { spreadsheetId, targetGid, spreadsheetName, sheetTab }) {
+  constructor(auth, { spreadsheetId, targetGid, targetName, spreadsheetName, sheetTab }) {
     this.auth = auth;
     this.fixedId = spreadsheetId || "";
     this.targetGid = targetGid;
+    this.targetName = targetName || "";
     this.spreadsheetName = spreadsheetName;
     this.sheetTab = sheetTab;
     this.spreadsheetId = this.fixedId || null;
-    this._resolvedTab = null; // tab title resolved from gid (mode A)
+    this._resolvedTab = null; // tab title resolved (mode A)
   }
 
   get usingFixedSheet() {
@@ -64,7 +65,12 @@ export class SheetsService {
     return this._appendToAutoCreated(results);
   }
 
-  // ── Mode A: existing spreadsheet + specific tab (by gid) ─────────────────
+  // ── Mode A: existing spreadsheet, "Session Log" style tab ────────────────
+  // The Session Log table has its header on row 4 and data from row 5:
+  //   A Date | B Session # | C Start | D End | E Duration(min) |
+  //   F Score | G Time Range | H Pre-session State | I Notes | J Tag
+  static DATA_START_ROW = 5;
+
   async _resolveTabTitle() {
     if (this._resolvedTab) return this._resolvedTab;
     const data = await this._fetch(
@@ -72,39 +78,94 @@ export class SheetsService {
         `?fields=sheets(properties(sheetId,title))`
     );
     const sheets = data.sheets || [];
-    // Prefer the tab whose gid matches TARGET_SHEET_GID; otherwise first tab.
-    const match =
-      sheets.find((s) => s.properties.sheetId === this.targetGid) || sheets[0];
+    const byName =
+      this.targetName &&
+      sheets.find(
+        (s) => s.properties.title.toLowerCase() === this.targetName.toLowerCase()
+      );
+    const byGid = sheets.find((s) => s.properties.sheetId === this.targetGid);
+    const match = byName || byGid || sheets[0];
     this._resolvedTab = match?.properties?.title || "Sheet1";
     return this._resolvedTab;
   }
 
-  _formatSessionRow(results) {
-    const fmtTime = (ms) =>
-      ms
-        ? new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-        : "";
-    const end = results.endTime || Date.now();
-    const d = new Date(end);
-    const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
-    const secs = results.durationSeconds;
-    const duration = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-    const ops = Object.keys(results.settings.operations)
-      .filter((k) => results.settings.operations[k].enabled)
-      .join(", ");
-    const notes = `correct ${results.correct}, incorrect ${results.incorrect}; ops: ${ops}`;
-    // Columns: Date, Start, End, Duration, Score, State, Notes
-    return [dateStr, fmtTime(results.startTime), fmtTime(end), duration, results.score, "", notes];
+  static _fmtTime(ms) {
+    return ms
+      ? new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      : "";
+  }
+
+  static _sameDay(displayDate, d) {
+    const p = new Date(displayDate);
+    return (
+      !Number.isNaN(p.getTime()) &&
+      p.getFullYear() === d.getFullYear() &&
+      p.getMonth() === d.getMonth() &&
+      p.getDate() === d.getDate()
+    );
   }
 
   async _appendToFixed(results) {
     const tab = await this._resolveTabTitle();
-    const row = this._formatSessionRow(results);
+    const start = SheetsService.DATA_START_ROW;
+
+    // Read the existing Date column to find the next empty row and the
+    // session number for today.
+    const dateData = await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
+        `${encodeURIComponent(tab)}!A${start}:A`
+    );
+    const dates = dateData.values || [];
+
+    let firstEmpty = dates.length;
+    for (let i = 0; i < dates.length; i++) {
+      const v = dates[i] && dates[i][0];
+      if (!v || String(v).trim() === "") {
+        firstEmpty = i;
+        break;
+      }
+    }
+    const targetRow = start + firstEmpty;
+
+    const end = results.endTime || Date.now();
+    const d = new Date(end);
+    const dateStr = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+
+    let sessionNum = 1;
+    for (let i = 0; i < firstEmpty; i++) {
+      const v = dates[i] && dates[i][0];
+      if (v && SheetsService._sameDay(v, d)) sessionNum++;
+    }
+
+    const startStr = SheetsService._fmtTime(results.startTime);
+    const endStr = SheetsService._fmtTime(end);
+    const durationMin = Math.round((results.durationSeconds / 60) * 100) / 100;
+    const ops = Object.keys(results.settings.operations)
+      .filter((k) => results.settings.operations[k].enabled)
+      .map((k) => ({ addition: "+", subtraction: "−", multiplication: "×", division: "÷" }[k]))
+      .join("");
+    const notes = `Zetamac Mobile — correct ${results.correct}, incorrect ${results.incorrect}, ops ${ops}`;
+    const timeRange = startStr && endStr ? `${startStr} - ${endStr}` : "";
+
+    // A..J in the Session Log column order.
+    const row = [
+      dateStr,
+      sessionNum,
+      startStr,
+      endStr,
+      durationMin,
+      results.score,
+      timeRange,
+      "", // Pre-session State (left for you to fill)
+      notes,
+      "", // Tag
+    ];
+
     await this._fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
-        `${encodeURIComponent(tab)}!A1:append` +
-        `?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-      { method: "POST", body: JSON.stringify({ values: [row] }) }
+        `${encodeURIComponent(tab)}!A${targetRow}:J${targetRow}` +
+        `?valueInputOption=USER_ENTERED`,
+      { method: "PUT", body: JSON.stringify({ values: [row] }) }
     );
     return this.fixedId;
   }

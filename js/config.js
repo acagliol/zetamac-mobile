@@ -15,7 +15,7 @@
  */
 window.ZETAMAC_CONFIG = {
   // e.g. "1234567890-abcdefg.apps.googleusercontent.com"
-  GOOGLE_CLIENT_ID: "",
+  GOOGLE_CLIENT_ID: "983661072068-vb52ohath6s5klvemh2romu2nbvabvof.apps.googleusercontent.com",
 
   // Name of the spreadsheet created in each user's Google Drive.
   SPREADSHEET_NAME: "Zetamac Results",

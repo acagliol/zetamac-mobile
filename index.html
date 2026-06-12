@@ -21,9 +21,8 @@
     <main class="app">
       <!-- ───────────────────────── HOME / SETTINGS ───────────────────────── -->
       <section id="screen-home" class="screen">
-        <header class="topbar">
-          <h1 class="logo">Zetamac<span>Mobile</span></h1>
-          <div id="account" class="account">
+        <div class="panel">
+          <div class="account">
             <button id="signin-btn" class="btn btn--ghost" hidden>Sign in with Google</button>
             <div id="account-info" class="account__info" hidden>
               <img id="account-pic" alt="" class="account__pic" />
@@ -31,58 +30,64 @@
               <button id="signout-btn" class="btn btn--text">Sign out</button>
             </div>
           </div>
-        </header>
 
-        <p id="auth-note" class="note" hidden>
-          Sign in to automatically save your scores to your own Google Sheet.
-        </p>
+          <h1 class="zm-title">Arithmetic Game</h1>
+          <p class="zm-desc">
+            The Arithmetic Game is a fast-paced speed drill where you are given
+            two minutes to solve as many arithmetic problems as you can.
+          </p>
+          <p id="auth-note" class="zm-desc" hidden>
+            Sign in to save your scores to your own Google Sheet.
+          </p>
 
-        <form id="settings" class="settings" autocomplete="off">
-          <fieldset class="settings__group">
-            <legend>Operations</legend>
-            <label class="check"><input type="checkbox" name="addition" checked /> Addition</label>
-            <label class="check"><input type="checkbox" name="subtraction" checked /> Subtraction</label>
-            <label class="check"><input type="checkbox" name="multiplication" checked /> Multiplication</label>
-            <label class="check"><input type="checkbox" name="division" checked /> Division</label>
-          </fieldset>
-
-          <details class="settings__advanced">
-            <summary>Number ranges</summary>
-            <div class="range-row">
-              <span class="range-row__label">Addition</span>
-              <input type="number" name="add-leftMin" value="2" min="0" />
-              <span>to</span>
-              <input type="number" name="add-leftMax" value="100" min="0" />
-              <span>+</span>
-              <input type="number" name="add-rightMin" value="2" min="0" />
-              <span>to</span>
-              <input type="number" name="add-rightMax" value="100" min="0" />
+          <form id="settings" class="zm-form" autocomplete="off">
+            <div class="op">
+              <label class="check"><input type="checkbox" name="addition" checked /> Addition</label>
+              <div class="op__range">
+                Range: ( <input type="number" name="add-leftMin" value="2" min="0" />
+                to <input type="number" name="add-leftMax" value="100" min="0" /> )
+                + ( <input type="number" name="add-rightMin" value="2" min="0" />
+                to <input type="number" name="add-rightMax" value="100" min="0" /> )
+              </div>
             </div>
-            <div class="range-row">
-              <span class="range-row__label">Multiply</span>
-              <input type="number" name="mul-leftMin" value="2" min="0" />
-              <span>to</span>
-              <input type="number" name="mul-leftMax" value="12" min="0" />
-              <span>×</span>
-              <input type="number" name="mul-rightMin" value="2" min="0" />
-              <span>to</span>
-              <input type="number" name="mul-rightMax" value="100" min="0" />
-            </div>
-          </details>
 
-          <div class="range-row range-row--duration">
-            <span class="range-row__label">Duration</span>
-            <select name="duration">
-              <option value="30">30 seconds</option>
-              <option value="60">60 seconds</option>
-              <option value="120" selected>120 seconds</option>
-              <option value="180">180 seconds</option>
-              <option value="300">300 seconds</option>
-            </select>
+            <div class="op">
+              <label class="check"><input type="checkbox" name="subtraction" checked /> Subtraction</label>
+              <div class="op__note">Addition problems in reverse.</div>
+            </div>
+
+            <div class="op">
+              <label class="check"><input type="checkbox" name="multiplication" checked /> Multiplication</label>
+              <div class="op__range">
+                Range: ( <input type="number" name="mul-leftMin" value="2" min="0" />
+                to <input type="number" name="mul-leftMax" value="12" min="0" /> )
+                &times; ( <input type="number" name="mul-rightMin" value="2" min="0" />
+                to <input type="number" name="mul-rightMax" value="100" min="0" /> )
+              </div>
+            </div>
+
+            <div class="op">
+              <label class="check"><input type="checkbox" name="division" checked /> Division</label>
+              <div class="op__note">Multiplication problems in reverse.</div>
+            </div>
+
+            <div class="duration-row">
+              <label>Duration:
+                <select name="duration">
+                  <option value="30">30 seconds</option>
+                  <option value="60">60 seconds</option>
+                  <option value="120" selected>120 seconds</option>
+                  <option value="180">180 seconds</option>
+                  <option value="300">300 seconds</option>
+                </select>
+              </label>
+            </div>
+          </form>
+
+          <div class="start-row">
+            <button id="start-btn" class="btn">Start</button>
           </div>
-        </form>
-
-        <button id="start-btn" class="btn btn--primary btn--block">Start</button>
+        </div>
       </section>
 
       <!-- ───────────────────────────── GAME ──────────────────────────────── -->

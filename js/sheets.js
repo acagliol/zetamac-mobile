@@ -61,9 +61,27 @@ export class SheetsService {
     return res.json();
   }
 
-  /** Append one game result. */
-  async saveResult(results) {
-    if (this.usingFixedSheet) return this._appendToFixed(results);
+  /** True when the Session Log has no entries yet for this calendar day. */
+  async isFirstSessionToday(when = Date.now()) {
+    if (!this.usingFixedSheet) return true;
+    const tab = await this._resolveTabTitle();
+    const dates = await this._readColumn(tab, "A", SheetsService.DATA_START_ROW);
+    const d = new Date(when);
+    for (let i = 0; i < dates.length; i++) {
+      const v = dates[i] && dates[i][0];
+      if (v && SheetsService._sameDay(v, d)) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Append one game result.
+   * @param {object} log.session  { state, notes, tag }
+   * @param {object} [log.daily] daily log fields (only used when includeDaily)
+   * @param {boolean} [log.includeDaily]
+   */
+  async saveResult(results, log = {}) {
+    if (this.usingFixedSheet) return this._appendToFixed(results, log);
     return this._appendToAutoCreated(results);
   }
 
@@ -148,7 +166,25 @@ export class SheetsService {
     );
   }
 
-  async _appendToFixed(results) {
+  static _fmtTimeInput(value24) {
+    if (!value24) return "";
+    const [h, m] = value24.split(":").map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+
+  static _sleepHours(wake24, bed24) {
+    if (!wake24 || !bed24) return "";
+    const [wh, wm] = wake24.split(":").map(Number);
+    const [bh, bm] = bed24.split(":").map(Number);
+    let diff = wh * 60 + wm - (bh * 60 + bm);
+    if (diff < 0) diff += 24 * 60;
+    return Math.round((diff / 60) * 100) / 100;
+  }
+
+  async _appendToFixed(results, log) {
+    const session = log.session || {};
     const tab = await this._resolveTabTitle();
     const start = SheetsService.DATA_START_ROW;
     const dates = await this._readColumn(tab, "A", start);
@@ -168,12 +204,8 @@ export class SheetsService {
     const startStr = SheetsService._fmtTime(results.startTime);
     const endStr = SheetsService._fmtTime(end);
     const durationMin = Math.round((results.durationSeconds / 60) * 100) / 100;
-    const ops = Object.keys(results.settings.operations)
-      .filter((k) => results.settings.operations[k].enabled)
-      .map((k) => ({ addition: "+", subtraction: "−", multiplication: "×", division: "÷" }[k]))
-      .join("");
-    const notes = `Zetamac Mobile — correct ${results.correct}, incorrect ${results.incorrect}, ops ${ops}`;
     const timeRange = startStr && endStr ? `${startStr} - ${endStr}` : "";
+    const sessionNotes = (session.notes || "").trim();
 
     const row = [
       dateStr,
@@ -183,9 +215,9 @@ export class SheetsService {
       durationMin,
       results.score,
       timeRange,
-      "",
-      notes,
-      "",
+      session.state || "",
+      sessionNotes,
+      session.tag || "",
     ];
 
     await this._fetch(
@@ -195,50 +227,46 @@ export class SheetsService {
       { method: "PUT", body: JSON.stringify({ values: [row] }) }
     );
 
-    await this._updateDailyLog(results, dateStr, d, endStr);
+    if (log.includeDaily && log.daily) {
+      await this._writeDailyLog(dateStr, d, log.daily);
+    }
     return this.fixedId;
   }
 
-  /**
-   * Ensure today has a Daily Log row and note this mobile run in column L.
-   * Daily Log layout: header row 4, data from row 5 — Date | Day | … | Notes.
-   */
-  async _updateDailyLog(results, dateStr, d, endStr) {
+  /** Write today's Daily Log row (first session of the day). */
+  async _writeDailyLog(dateStr, d, daily) {
     const tab = await this._tabTitle({ name: this.dailyLogName });
     const start = SheetsService.DATA_START_ROW;
     const dates = await this._readColumn(tab, "A", start);
-    const todayIdx = this._findTodayIndex(dates, d);
-    const runNote = `Zetamac mobile — score ${results.score} at ${endStr || "end of run"}`;
+    const row = start + this._firstEmptyIndex(dates);
+    const day = SheetsService.DAY_NAMES[d.getDay()];
+    const wake = SheetsService._fmtTimeInput(daily.wake);
+    const bed = SheetsService._fmtTimeInput(daily.bed);
+    const sleepHrs = SheetsService._sleepHours(daily.wake, daily.bed);
 
-    if (todayIdx === -1) {
-      const row = start + this._firstEmptyIndex(dates);
-      const day = SheetsService.DAY_NAMES[d.getDay()];
-      await this._fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
-          `${encodeURIComponent(tab)}!A${row}:L${row}` +
-          `?valueInputOption=USER_ENTERED`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            values: [[dateStr, day, "", "", "", "", "", "", "", "", "", runNote]],
-          }),
-        }
-      );
-      return;
-    }
-
-    const row = start + todayIdx;
-    const noteData = await this._fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
-        `${encodeURIComponent(tab)}!L${row}`
-    );
-    const existing = (noteData.values && noteData.values[0] && noteData.values[0][0]) || "";
-    const merged = existing ? `${existing}; ${runNote}` : runNote;
     await this._fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
-        `${encodeURIComponent(tab)}!L${row}` +
+        `${encodeURIComponent(tab)}!A${row}:L${row}` +
         `?valueInputOption=USER_ENTERED`,
-      { method: "PUT", body: JSON.stringify({ values: [[merged]] }) }
+      {
+        method: "PUT",
+        body: JSON.stringify({
+          values: [[
+            dateStr,
+            day,
+            wake,
+            bed,
+            sleepHrs,
+            daily.sleepQuality || "",
+            daily.food || "",
+            daily.caffeine || "",
+            daily.breakfast || "",
+            daily.energy || "",
+            daily.focus || "",
+            daily.notes || "",
+          ]],
+        }),
+      }
     );
   }
 

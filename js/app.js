@@ -4,10 +4,10 @@
  * Wires together the game engine, the on-screen keypad, Google auth and the
  * Sheets service, and manages the three screens (home → game → results).
  */
-import { GameEngine, DEFAULT_SETTINGS } from "./game.js?v=9";
-import { Keypad } from "./keypad.js?v=9";
-import { GoogleAuth } from "./auth.js?v=9";
-import { SheetsService } from "./sheets.js?v=9";
+import { GameEngine, DEFAULT_SETTINGS } from "./game.js?v=10";
+import { Keypad } from "./keypad.js?v=10";
+import { GoogleAuth } from "./auth.js?v=10";
+import { SheetsService } from "./sheets.js?v=10";
 
 const CONFIG = window.ZETAMAC_CONFIG || {};
 
@@ -36,6 +36,8 @@ let engine = null;
 let keypad = null;
 let timerId = null;
 let timeLeft = 0;
+let pendingResults = null;
+let showDailyLogForm = false;
 
 const auth = new GoogleAuth(CONFIG.GOOGLE_CLIENT_ID);
 const sheets = new SheetsService(auth, {
@@ -143,38 +145,93 @@ function flashWrong() {
 async function endGame() {
   clearInterval(timerId);
   engine.finish();
-  const results = engine.getResults();
+  pendingResults = engine.getResults();
 
-  $("#final-score").textContent = results.score;
-  $("#final-correct").textContent = results.correct;
-  $("#final-incorrect").textContent = results.incorrect;
-  $("#final-duration").textContent = `${results.durationSeconds}s`;
+  $("#final-score").textContent = pendingResults.score;
+  $("#final-correct").textContent = pendingResults.correct;
+  $("#final-incorrect").textContent = pendingResults.incorrect;
+  $("#final-duration").textContent = `${pendingResults.durationSeconds}s`;
   $("#view-sheet").hidden = true;
+  $("#save-status").textContent = "";
   showScreen("results");
 
-  await saveResults(results);
+  await prepareLogForms();
 }
 
-async function saveResults(results) {
-  const status = $("#save-status");
-  if (!auth.isConfigured) {
-    status.textContent = "";
+async function prepareLogForms() {
+  const forms = $("#log-forms");
+  const dailySection = $("#daily-log-section");
+  const form = $("#log-forms");
+  form.reset();
+
+  if (!auth.isConfigured || !auth.isSignedIn) {
+    forms.hidden = true;
+    $("#save-status").textContent = auth.isConfigured
+      ? "Sign in on the home screen to save scores to Google Sheets."
+      : "";
     return;
   }
-  if (!auth.isSignedIn) {
+
+  forms.hidden = false;
+  showDailyLogForm = await sheets.isFirstSessionToday(pendingResults.endTime);
+  dailySection.hidden = !showDailyLogForm;
+
+  if (showDailyLogForm) {
+    $("#save-status").textContent = "Fill in today's context and session notes, then save.";
+  } else {
+    $("#save-status").textContent = "Fill in session notes, then save.";
+  }
+}
+
+function readLogForms() {
+  const f = $("#log-forms").elements;
+  const log = {
+    session: {
+      state: f["session-state"].value,
+      notes: f["session-notes"].value,
+      tag: f["session-tag"].value,
+    },
+    includeDaily: showDailyLogForm,
+  };
+  if (showDailyLogForm) {
+    log.daily = {
+      wake: f["daily-wake"].value,
+      bed: f["daily-bed"].value,
+      sleepQuality: f["daily-sleep-quality"].value,
+      food: f["daily-food"].value,
+      caffeine: f["daily-caffeine"].value,
+      breakfast: f["daily-breakfast"].value,
+      energy: f["daily-energy"].value,
+      focus: f["daily-focus"].value,
+      notes: f["daily-notes"].value,
+    };
+  }
+  return log;
+}
+
+async function saveResults() {
+  const status = $("#save-status");
+  if (!pendingResults) return;
+  if (!auth.isConfigured || !auth.isSignedIn) {
     status.textContent = "Sign in on the home screen to save scores to Google Sheets.";
     return;
   }
   status.textContent = "Saving to Google Sheets…";
+  $("#save-btn").disabled = true;
   try {
-    await sheets.saveResult(results);
+    const log = readLogForms();
+    await sheets.saveResult(pendingResults, log);
     status.textContent = "Saved to your Google Sheet.";
     const link = $("#view-sheet");
     link.href = sheets.spreadsheetUrl;
     link.hidden = false;
+    showDailyLogForm = false;
+    $("#daily-log-section").hidden = true;
   } catch (err) {
     console.error(err);
     status.textContent = "Could not save to Google Sheets. See console for details.";
+  } finally {
+    $("#save-btn").disabled = false;
   }
 }
 
@@ -209,7 +266,11 @@ function init() {
   keypad = new Keypad($("#keypad"), { onChange: handleChange, onSubmit: handleSubmit });
 
   $("#start-btn").addEventListener("click", startGame);
-  $("#again-btn").addEventListener("click", () => showScreen("home"));
+  $("#again-btn").addEventListener("click", () => {
+    pendingResults = null;
+    showScreen("home");
+  });
+  $("#save-btn").addEventListener("click", saveResults);
 
   // Zetamac flow: press Enter to start from the home screen, and to play
   // again from the results screen.
@@ -218,7 +279,7 @@ function init() {
     if (!screens.home.hidden) {
       e.preventDefault();
       startGame();
-    } else if (!screens.results.hidden) {
+    } else if (!screens.results.hidden && $("#log-forms").hidden) {
       e.preventDefault();
       showScreen("home");
     }

@@ -12,10 +12,10 @@
       name="description"
       content="A mobile-friendly mental math game with an on-screen keypad and Google Sheets result tracking."
     />
-    <link rel="stylesheet" href="css/styles.css?v=9" />
+    <link rel="stylesheet" href="css/styles.css?v=10" />
     <!-- Google Identity Services (used only if a Client ID is configured) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="js/config.js?v=9"></script>
+    <script src="js/config.js?v=10"></script>
   </head>
   <body>
     <main class="app">
@@ -125,6 +125,99 @@
             Incorrect <span id="final-incorrect">0</span> &middot;
             Duration <span id="final-duration">0s</span>
           </p>
+
+          <form id="log-forms" class="log-forms" hidden autocomplete="off">
+            <fieldset class="log-section">
+              <legend>Session Log</legend>
+              <label class="log-field">
+                Pre-session State
+                <select name="session-state">
+                  <option value="">—</option>
+                  <option>Tired</option>
+                  <option>Normal</option>
+                  <option>Focused</option>
+                  <option>Distracted</option>
+                  <option>Stressed</option>
+                </select>
+              </label>
+              <label class="log-field">
+                Mistakes / Notes
+                <textarea name="session-notes" rows="2" placeholder="What slowed you down?"></textarea>
+              </label>
+              <label class="log-field">
+                Tag
+                <input type="text" name="session-tag" placeholder="Optional" />
+              </label>
+            </fieldset>
+
+            <fieldset id="daily-log-section" class="log-section" hidden>
+              <legend>Daily Log <span class="log-hint">(first run today)</span></legend>
+              <label class="log-field">
+                Wake Time
+                <input type="time" name="daily-wake" />
+              </label>
+              <label class="log-field">
+                Bed Time
+                <input type="time" name="daily-bed" />
+              </label>
+              <label class="log-field">
+                Sleep Quality (1–10)
+                <select name="daily-sleep-quality">
+                  <option value="">—</option>
+                  <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                  <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+                </select>
+              </label>
+              <label class="log-field">
+                Morning Food
+                <input type="text" name="daily-food" placeholder="e.g. cereal, chipotle" />
+              </label>
+              <label class="log-field">
+                Caffeine
+                <select name="daily-caffeine">
+                  <option value="">—</option>
+                  <option>None</option>
+                  <option>Coffee</option>
+                  <option>Tea</option>
+                  <option>Energy drink</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label class="log-field">
+                Breakfast Size
+                <select name="daily-breakfast">
+                  <option value="">—</option>
+                  <option>Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                  <option>Very High</option>
+                </select>
+              </label>
+              <label class="log-field">
+                Energy (1–10)
+                <select name="daily-energy">
+                  <option value="">—</option>
+                  <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                  <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+                </select>
+              </label>
+              <label class="log-field">
+                Focus (1–10)
+                <select name="daily-focus">
+                  <option value="">—</option>
+                  <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                  <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+                </select>
+              </label>
+              <label class="log-field">
+                Notes
+                <textarea name="daily-notes" rows="2" placeholder="How did you feel today?"></textarea>
+              </label>
+            </fieldset>
+
+            <button id="save-btn" type="button" class="btn btn--primary btn--block">Save to spreadsheet</button>
+          </form>
+
           <p id="save-status" class="save-status"></p>
           <a id="view-sheet" class="results-link" target="_blank" rel="noopener" hidden>
             View results spreadsheet
@@ -136,6 +229,6 @@
       </section>
     </main>
 
-    <script type="module" src="js/app.js?v=9"></script>
+    <script type="module" src="js/app.js?v=10"></script>
   </body>
 </html>

@@ -45,6 +45,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 16px 0;
+  overflow-y: auto;
 }
 
 /* ─────────────────────────────── Buttons ───────────────────────────────── */
@@ -219,6 +220,38 @@ body {
 .save-status { text-align: center; color: var(--muted); font-size: 0.85rem; min-height: 1.2em; margin: 4px 0 12px; }
 
 .results-footer .start-row { justify-content: center; }
+
+/* Post-game log forms */
+.log-forms { text-align: left; margin: 12px 0; }
+.log-section {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+.log-section legend { font-weight: 700; padding: 0 6px; }
+.log-hint { font-weight: 400; color: var(--muted); font-size: 0.85rem; }
+.log-field {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+.log-field:last-child { margin-bottom: 0; }
+.log-field input,
+.log-field select,
+.log-field textarea {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  font: inherit;
+  border: 1px solid #767676;
+  border-radius: 4px;
+  padding: 8px;
+  background: #fff;
+}
+.log-field textarea { resize: vertical; min-height: 2.5em; }
+.btn--primary { background: #000; color: #fff; }
+.btn--primary:active { background: #222; }
 
 @media (min-width: 600px) {
   .key, .key--enter { padding: 20px 0; }

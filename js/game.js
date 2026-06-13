@@ -28,9 +28,20 @@ export const DEFAULT_SETTINGS = {
   },
 };
 
+/** Zetamac never uses answers or displayed numbers beyond 3 digits. */
+export const MAX_ANSWER = 999;
+
 /** Inclusive random integer in [min, max]. */
 function randInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+/** True when answer and every number shown in the problem are ≤ 3 digits. */
+function isValidProblem(problem) {
+  if (problem.answer < 0 || problem.answer > MAX_ANSWER) return false;
+  const nums = problem.text.match(/\d+/g);
+  if (nums && nums.some((n) => Number(n) > MAX_ANSWER)) return false;
+  return true;
 }
 
 // Use real math symbols for display; answers are always plain numbers.
@@ -122,7 +133,10 @@ export class GameEngine {
       const op = ops[randInt(0, ops.length - 1)];
       problem = this._build(op);
       attempts++;
-    } while (problem.text === this._lastText && attempts < 8);
+    } while (
+      (!isValidProblem(problem) || problem.text === this._lastText) &&
+      attempts < 24
+    );
     this._lastText = problem.text;
     this.current = problem;
     return this.current;

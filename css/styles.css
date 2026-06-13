@@ -156,7 +156,8 @@ body {
 .equals { font-weight: 400; }
 .answer {
   display: inline-block;
-  min-width: 2.6em;
+  min-width: 2.2em;
+  max-width: 3.2em;
   background: #fff;
   border: 2px solid var(--line);
   border-radius: 2px;

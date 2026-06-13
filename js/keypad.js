@@ -81,7 +81,7 @@ export class Keypad {
   }
 
   append(digit) {
-    if (this.value.length >= 9) return; // sane upper bound
+    if (this.value.length >= 3) return; // Zetamac answers are at most 3 digits
     this.value += digit;
     this.onChange(this.value);
   }

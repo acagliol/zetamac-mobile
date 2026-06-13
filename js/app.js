@@ -4,10 +4,10 @@
  * Wires together the game engine, the on-screen keypad, Google auth and the
  * Sheets service, and manages the three screens (home → game → results).
  */
-import { GameEngine, DEFAULT_SETTINGS } from "./game.js?v=8";
-import { Keypad } from "./keypad.js?v=8";
-import { GoogleAuth } from "./auth.js?v=8";
-import { SheetsService } from "./sheets.js?v=8";
+import { GameEngine, DEFAULT_SETTINGS } from "./game.js?v=9";
+import { Keypad } from "./keypad.js?v=9";
+import { GoogleAuth } from "./auth.js?v=9";
+import { SheetsService } from "./sheets.js?v=9";
 
 const CONFIG = window.ZETAMAC_CONFIG || {};
 
@@ -42,6 +42,7 @@ const sheets = new SheetsService(auth, {
   spreadsheetId: CONFIG.SPREADSHEET_ID || "",
   targetGid: CONFIG.TARGET_SHEET_GID,
   targetName: CONFIG.TARGET_SHEET_NAME || "",
+  dailyLogName: CONFIG.DAILY_LOG_SHEET_NAME || "Daily Log",
   spreadsheetName: CONFIG.SPREADSHEET_NAME || "Zetamac Results",
   sheetTab: CONFIG.SHEET_TAB_NAME || "Results",
 });

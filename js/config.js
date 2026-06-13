@@ -21,9 +21,12 @@ window.ZETAMAC_CONFIG = {
   // Leave empty ("") to fall back to auto-creating a "Zetamac Results" sheet.
   SPREADSHEET_ID: "1OZbNLykg9KNo0dnylNdmT4y7sfu5WY43fc-29Cy9AYk",
 
-  // The tab to append game results to. Matched by name first, gid second.
+  // Session Log tab — one row per game run.
   TARGET_SHEET_NAME: "Session Log",
   TARGET_SHEET_GID: 456037226,
+
+  // Daily Log tab — one row per day; we ensure today exists and note each run.
+  DAILY_LOG_SHEET_NAME: "Daily Log",
 
   // Fallbacks used only when SPREADSHEET_ID is empty (auto-create mode).
   SPREADSHEET_NAME: "Zetamac Results",

@@ -20,17 +20,19 @@ const HEADER_ROW = ["Date", "Score", "Correct", "Incorrect", "Duration (s)", "Se
 export class SheetsService {
   /**
    * @param {import('./auth.js').GoogleAuth} auth
-   * @param {{spreadsheetId?:string, targetGid?:number, targetName?:string, spreadsheetName:string, sheetTab:string}} opts
+   * @param {{spreadsheetId?:string, targetGid?:number, targetName?:string, dailyLogName?:string, spreadsheetName:string, sheetTab:string}} opts
    */
-  constructor(auth, { spreadsheetId, targetGid, targetName, spreadsheetName, sheetTab }) {
+  constructor(auth, { spreadsheetId, targetGid, targetName, dailyLogName, spreadsheetName, sheetTab }) {
     this.auth = auth;
     this.fixedId = spreadsheetId || "";
     this.targetGid = targetGid;
     this.targetName = targetName || "";
+    this.dailyLogName = dailyLogName || "Daily Log";
     this.spreadsheetName = spreadsheetName;
     this.sheetTab = sheetTab;
     this.spreadsheetId = this.fixedId || null;
-    this._resolvedTab = null; // tab title resolved (mode A)
+    this._resolvedTab = null;
+    this._sheetTitles = null;
   }
 
   get usingFixedSheet() {
@@ -70,23 +72,64 @@ export class SheetsService {
   //   A Date | B Session # | C Start | D End | E Duration(min) |
   //   F Score | G Time Range | H Pre-session State | I Notes | J Tag
   static DATA_START_ROW = 5;
+  static DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  async _resolveTabTitle() {
-    if (this._resolvedTab) return this._resolvedTab;
+  async _loadSheetTitles() {
+    if (this._sheetTitles) return this._sheetTitles;
     const data = await this._fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}` +
         `?fields=sheets(properties(sheetId,title))`
     );
-    const sheets = data.sheets || [];
-    const byName =
-      this.targetName &&
-      sheets.find(
-        (s) => s.properties.title.toLowerCase() === this.targetName.toLowerCase()
+    this._sheetTitles = data.sheets || [];
+    return this._sheetTitles;
+  }
+
+  async _tabTitle({ name, gid, fallback }) {
+    const sheets = await this._loadSheetTitles();
+    if (name) {
+      const byName = sheets.find(
+        (s) => s.properties.title.toLowerCase() === name.toLowerCase()
       );
-    const byGid = sheets.find((s) => s.properties.sheetId === this.targetGid);
-    const match = byName || byGid || sheets[0];
-    this._resolvedTab = match?.properties?.title || "Sheet1";
+      if (byName) return byName.properties.title;
+    }
+    if (gid != null) {
+      const byGid = sheets.find((s) => s.properties.sheetId === gid);
+      if (byGid) return byGid.properties.title;
+    }
+    return fallback || sheets[0]?.properties?.title || "Sheet1";
+  }
+
+  async _resolveTabTitle() {
+    if (this._resolvedTab) return this._resolvedTab;
+    this._resolvedTab = await this._tabTitle({
+      name: this.targetName,
+      gid: this.targetGid,
+    });
     return this._resolvedTab;
+  }
+
+  async _readColumn(tab, col, startRow) {
+    const data = await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
+        `${encodeURIComponent(tab)}!${col}${startRow}:${col}`
+    );
+    return data.values || [];
+  }
+
+  _firstEmptyIndex(values) {
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i] && values[i][0];
+      if (!v || String(v).trim() === "") return i;
+    }
+    return values.length;
+  }
+
+  _findTodayIndex(values, d) {
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i] && values[i][0];
+      if (v && SheetsService._sameDay(v, d)) return i;
+    }
+    return -1;
   }
 
   static _fmtTime(ms) {
@@ -108,23 +151,8 @@ export class SheetsService {
   async _appendToFixed(results) {
     const tab = await this._resolveTabTitle();
     const start = SheetsService.DATA_START_ROW;
-
-    // Read the existing Date column to find the next empty row and the
-    // session number for today.
-    const dateData = await this._fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
-        `${encodeURIComponent(tab)}!A${start}:A`
-    );
-    const dates = dateData.values || [];
-
-    let firstEmpty = dates.length;
-    for (let i = 0; i < dates.length; i++) {
-      const v = dates[i] && dates[i][0];
-      if (!v || String(v).trim() === "") {
-        firstEmpty = i;
-        break;
-      }
-    }
+    const dates = await this._readColumn(tab, "A", start);
+    const firstEmpty = this._firstEmptyIndex(dates);
     const targetRow = start + firstEmpty;
 
     const end = results.endTime || Date.now();
@@ -147,7 +175,6 @@ export class SheetsService {
     const notes = `Zetamac Mobile — correct ${results.correct}, incorrect ${results.incorrect}, ops ${ops}`;
     const timeRange = startStr && endStr ? `${startStr} - ${endStr}` : "";
 
-    // A..J in the Session Log column order.
     const row = [
       dateStr,
       sessionNum,
@@ -156,9 +183,9 @@ export class SheetsService {
       durationMin,
       results.score,
       timeRange,
-      "", // Pre-session State (left for you to fill)
+      "",
       notes,
-      "", // Tag
+      "",
     ];
 
     await this._fetch(
@@ -167,7 +194,52 @@ export class SheetsService {
         `?valueInputOption=USER_ENTERED`,
       { method: "PUT", body: JSON.stringify({ values: [row] }) }
     );
+
+    await this._updateDailyLog(results, dateStr, d, endStr);
     return this.fixedId;
+  }
+
+  /**
+   * Ensure today has a Daily Log row and note this mobile run in column L.
+   * Daily Log layout: header row 4, data from row 5 — Date | Day | … | Notes.
+   */
+  async _updateDailyLog(results, dateStr, d, endStr) {
+    const tab = await this._tabTitle({ name: this.dailyLogName });
+    const start = SheetsService.DATA_START_ROW;
+    const dates = await this._readColumn(tab, "A", start);
+    const todayIdx = this._findTodayIndex(dates, d);
+    const runNote = `Zetamac mobile — score ${results.score} at ${endStr || "end of run"}`;
+
+    if (todayIdx === -1) {
+      const row = start + this._firstEmptyIndex(dates);
+      const day = SheetsService.DAY_NAMES[d.getDay()];
+      await this._fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
+          `${encodeURIComponent(tab)}!A${row}:L${row}` +
+          `?valueInputOption=USER_ENTERED`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            values: [[dateStr, day, "", "", "", "", "", "", "", "", "", runNote]],
+          }),
+        }
+      );
+      return;
+    }
+
+    const row = start + todayIdx;
+    const noteData = await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
+        `${encodeURIComponent(tab)}!L${row}`
+    );
+    const existing = (noteData.values && noteData.values[0] && noteData.values[0][0]) || "";
+    const merged = existing ? `${existing}; ${runNote}` : runNote;
+    await this._fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${this.fixedId}/values/` +
+        `${encodeURIComponent(tab)}!L${row}` +
+        `?valueInputOption=USER_ENTERED`,
+      { method: "PUT", body: JSON.stringify({ values: [[merged]] }) }
+    );
   }
 
   // ── Mode B: auto-create a personal results spreadsheet ───────────────────

@@ -4,10 +4,10 @@
  * Wires together the game engine, the on-screen keypad, Google auth and the
  * Sheets service, and manages the three screens (home → game → results).
  */
-import { GameEngine, DEFAULT_SETTINGS } from "./game.js?v=6";
-import { Keypad } from "./keypad.js?v=6";
-import { GoogleAuth } from "./auth.js?v=6";
-import { SheetsService } from "./sheets.js?v=6";
+import { GameEngine, DEFAULT_SETTINGS } from "./game.js?v=7";
+import { Keypad } from "./keypad.js?v=7";
+import { GoogleAuth } from "./auth.js?v=7";
+import { SheetsService } from "./sheets.js?v=7";
 
 const CONFIG = window.ZETAMAC_CONFIG || {};
 
@@ -17,6 +17,14 @@ const screens = {
   home: $("#screen-home"),
   game: $("#screen-game"),
   results: $("#screen-results"),
+};
+
+// Cache hot-path nodes so each keystroke does no DOM lookups.
+const els = {
+  problem: $("#problem"),
+  answer: $("#answer"),
+  score: $("#score"),
+  time: $("#time"),
 };
 
 function showScreen(name) {
@@ -70,11 +78,11 @@ function readSettings() {
 
 // ── Game flow ────────────────────────────────────────────────────────────
 function renderProblem() {
-  $("#problem").textContent = engine.current.text;
+  els.problem.textContent = engine.current.text;
 }
 
 function renderAnswer(value) {
-  $("#answer").textContent = value;
+  els.answer.textContent = value;
 }
 
 function startGame() {
@@ -86,8 +94,8 @@ function startGame() {
   engine.start();
 
   timeLeft = settings.duration;
-  $("#time").textContent = timeLeft;
-  $("#score").textContent = 0;
+  els.time.textContent = timeLeft;
+  els.score.textContent = 0;
   keypad.reset();
   renderAnswer("");
   renderProblem();
@@ -96,20 +104,21 @@ function startGame() {
   clearInterval(timerId);
   timerId = setInterval(() => {
     timeLeft -= 1;
-    $("#time").textContent = Math.max(0, timeLeft);
+    els.time.textContent = Math.max(0, timeLeft);
     if (timeLeft <= 0) endGame();
   }, 1000);
 }
 
 function handleChange(value) {
-  renderAnswer(value);
   // Auto-advance on an exact match — this is the core Zetamac feel.
   if (value !== "" && Number(value) === engine.current.answer) {
     engine.submit(value);
     keypad.reset();
-    renderAnswer("");
-    renderProblem();
-    $("#score").textContent = engine.score;
+    els.answer.textContent = "";
+    els.problem.textContent = engine.current.text;
+    els.score.textContent = engine.score;
+  } else {
+    els.answer.textContent = value;
   }
 }
 

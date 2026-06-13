@@ -48,11 +48,17 @@ export class Keypad {
       btn.className = `key ${k.cls || ""}`.trim();
       btn.textContent = k.label;
       btn.setAttribute("aria-label", k.aria || k.label);
-      // Prevent the on-screen keyboard / focus loss on tap.
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        k.action();
-      });
+      // Use pointerdown (fires immediately on touch) instead of click, which
+      // carries a perceptible delay on mobile. preventDefault stops the
+      // synthesized click, focus changes and scrolling for zero-lag input.
+      btn.addEventListener(
+        "pointerdown",
+        (e) => {
+          e.preventDefault();
+          k.action();
+        },
+        { passive: false }
+      );
       grid.appendChild(btn);
     }
 

@@ -27,6 +27,7 @@ body {
   color: var(--text);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
 }
 
 .app {
@@ -155,14 +156,15 @@ body {
 .equals { font-weight: 400; }
 .answer {
   display: inline-block;
-  min-width: 1.8em;
+  min-width: 2.6em;
   background: #fff;
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 2px;
-  padding: 0.05em 0.25em;
+  padding: 0.08em 0.35em;
   text-align: left;
   font-variant-numeric: tabular-nums;
   font-weight: 400;
+  line-height: 1.15;
 }
 .problem--wrong { display: inline-block; animation: shake 0.3s ease; }
 @keyframes shake {
@@ -188,6 +190,9 @@ body {
   padding: 16px 0;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  /* Remove tap delay/highlight and prevent double-tap zoom on the keys. */
+  touch-action: manipulation;
 }
 .key:active { background: #eee; }
 .key--util { background: #f5f5f5; }
